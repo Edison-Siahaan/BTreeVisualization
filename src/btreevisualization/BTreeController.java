@@ -31,6 +31,10 @@ import java.util.List;
  * undo/redo, tetapi tetap merekam langkah untuk animasi dan menyimpan hasil
  * pencarian terakhir agar dapat ditampilkan setelah animasi selesai.</p>
  *
+ * <p>Seluruh pesan yang dikembalikan ke pemanggil (lewat
+ * {@link ValidationResult#message}) dan pesan langkah {@code FINISHED}
+ * diambil dari {@link LanguageManager} agar mengikuti bahasa yang aktif.</p>
+ *
  * @author Edison Siahaan_L
  */
 public class BTreeController {
@@ -122,7 +126,7 @@ public class BTreeController {
 
         if (tree.contains(key)) {
             return new ValidationResult(false,
-                    "Kunci " + rawInput + " sudah ada di dalam pohon.", null);
+                    LanguageManager.get("msg.duplicate_key", rawInput), null);
         }
 
         animManager.stop();
@@ -132,7 +136,9 @@ public class BTreeController {
 
         TreeSnapshot finalSnap = tree.createSnapshot();
         stepRecorder.getRecordedSteps().add(
-                new AnimationStep(StepType.FINISHED, "Selesai", new HashSet<>(), finalSnap));
+                new AnimationStep(StepType.FINISHED,
+                        LanguageManager.get("msg.finished"),
+                        new HashSet<>(), finalSnap));
         animManager.playAnimation(stepRecorder.getRecordedSteps());
         return res;
     }
@@ -157,7 +163,7 @@ public class BTreeController {
 
         if (uniqueKeys.isEmpty()) {
             return new ValidationResult(false,
-                    "Semua kunci yang dimasukkan sudah ada di dalam pohon.", null);
+                    LanguageManager.get("msg.all_duplicates"), null);
         }
 
         animManager.stop();
@@ -170,7 +176,8 @@ public class BTreeController {
 
         TreeSnapshot finalSnap = tree.createSnapshot();
         stepRecorder.getRecordedSteps().add(
-                new AnimationStep(StepType.FINISHED, "Batch Insert Selesai",
+                new AnimationStep(StepType.FINISHED,
+                        LanguageManager.get("msg.batch_insert_finished"),
                         new HashSet<>(), finalSnap));
         animManager.playAnimation(stepRecorder.getRecordedSteps());
         return new ValidationResult(true, "OK", uniqueKeys);
@@ -187,7 +194,7 @@ public class BTreeController {
         if (!res.valid) return res;
         if (tree.createSnapshot().root == null)
             return new ValidationResult(false,
-                    "Pohon kosong, tidak ada yang bisa dihapus.", null);
+                    LanguageManager.get("msg.tree_empty_delete"), null);
 
         animManager.stop();
         undoRedoManager.saveState(tree.createSnapshot());
@@ -196,7 +203,8 @@ public class BTreeController {
 
         TreeSnapshot finalSnap = tree.createSnapshot();
         stepRecorder.getRecordedSteps().add(
-                new AnimationStep(StepType.FINISHED, "Batch Delete Selesai",
+                new AnimationStep(StepType.FINISHED,
+                        LanguageManager.get("msg.batch_delete_finished"),
                         new HashSet<>(), finalSnap));
         animManager.playAnimation(stepRecorder.getRecordedSteps());
         return res;
@@ -213,7 +221,7 @@ public class BTreeController {
         if (!res.valid) return res;
         if (tree.createSnapshot().root == null)
             return new ValidationResult(false,
-                    "Pohon kosong, tidak ada yang bisa dihapus.", null);
+                    LanguageManager.get("msg.tree_empty_delete"), null);
 
         String key = res.keys.get(0);
         animManager.stop();
@@ -223,7 +231,9 @@ public class BTreeController {
 
         TreeSnapshot finalSnap = tree.createSnapshot();
         stepRecorder.getRecordedSteps().add(
-                new AnimationStep(StepType.FINISHED, "Selesai", new HashSet<>(), finalSnap));
+                new AnimationStep(StepType.FINISHED,
+                        LanguageManager.get("msg.finished"),
+                        new HashSet<>(), finalSnap));
         animManager.playAnimation(stepRecorder.getRecordedSteps());
         return res;
     }
@@ -243,7 +253,7 @@ public class BTreeController {
         if (!res.valid) return res;
         if (tree.createSnapshot().root == null)
             return new ValidationResult(false,
-                    "Pohon kosong, tidak ada yang bisa dicari.", null);
+                    LanguageManager.get("msg.tree_empty_search"), null);
 
         String key = res.keys.get(0);
         lastSearchKey = key;
@@ -253,8 +263,8 @@ public class BTreeController {
 
         TreeSnapshot finalSnap = tree.createSnapshot();
         String msg = lastSearchFound
-                ? "Pencarian selesai: " + fmt(key) + " Ditemukan"
-                : "Pencarian selesai: " + fmt(key) + " Tidak Ditemukan";
+                ? LanguageManager.get("msg.search_found", fmt(key))
+                : LanguageManager.get("msg.search_not_found", fmt(key));
         stepRecorder.getRecordedSteps().add(
                 new AnimationStep(StepType.FINISHED, msg, new HashSet<>(), finalSnap));
         animManager.playAnimation(stepRecorder.getRecordedSteps());

@@ -31,6 +31,10 @@ import javax.imageio.ImageIO;
  * kontrol input dinonaktifkan untuk mencegah operasi bersamaan. Tombol pause
  * dan step hanya aktif saat animasi berlangsung.</p>
  *
+ * <p>Seluruh teks yang tampil ke pengguna — label, menu, dialog, pesan log
+ * kontrol, judul dialog, dan teks hasil pencarian — diambil dari
+ * {@link LanguageManager} agar mengikuti bahasa yang aktif.</p>
+ *
  * @author Edison Siahaan_L
  */
 public class BTreeVisualization extends JFrame implements AnimationListener {
@@ -245,7 +249,8 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
     private void processInsert() {
         ValidationResult res = controller.insert(leftPanel.txtInput.getText());
         if (!res.valid) {
-            JOptionPane.showMessageDialog(this, res.message, "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, res.message,
+                    LanguageManager.get("err.title"), JOptionPane.ERROR_MESSAGE);
         } else {
             leftPanel.txtInput.setText("");
             centerPanel.treePanel.setSearchPathActive(false);
@@ -263,7 +268,8 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
     private void processDelete() {
         ValidationResult res = controller.delete(leftPanel.txtInput.getText());
         if (!res.valid) {
-            JOptionPane.showMessageDialog(this, res.message, "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, res.message,
+                    LanguageManager.get("err.title"), JOptionPane.ERROR_MESSAGE);
         } else {
             leftPanel.txtInput.setText("");
             centerPanel.treePanel.setSearchPathActive(false);
@@ -284,7 +290,8 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
                 ? controller.batchInsert(leftPanel.txtBatch.getText())
                 : controller.batchDelete(leftPanel.txtBatch.getText());
         if (!res.valid) {
-            JOptionPane.showMessageDialog(this, res.message, "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, res.message,
+                    LanguageManager.get("err.title"), JOptionPane.ERROR_MESSAGE);
         } else {
             leftPanel.txtBatch.setText("");
             centerPanel.treePanel.setSearchPathActive(false);
@@ -303,7 +310,8 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
     private void processSearch() {
         ValidationResult res = controller.search(rightPanel.txtSearch.getText());
         if (!res.valid) {
-            JOptionPane.showMessageDialog(this, res.message, "Error", JOptionPane.ERROR_MESSAGE);
+            JOptionPane.showMessageDialog(this, res.message,
+                    LanguageManager.get("err.title"), JOptionPane.ERROR_MESSAGE);
         } else {
             centerPanel.treePanel.setSearchPathActive(true);
             centerPanel.treePanel.clearPath();
@@ -349,8 +357,8 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
         updateControlStates();
         boolean paused = controller.isPaused();
         centerPanel.lblPauseStatus.setVisible(paused);
-        if (paused) logMessage("[KONTROL] Animasi dijeda (Paused).");
-        else logMessage("[KONTROL] Animasi dilanjutkan.");
+        if (paused) logMessage(LanguageManager.get("log.ctrl.paused"));
+        else logMessage(LanguageManager.get("log.ctrl.resumed"));
     }
 
     /**
@@ -369,8 +377,9 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
         int newOrder = (Integer) leftPanel.spinnerOrde.getValue();
         if (newOrder == currentOrder) {
             JOptionPane.showMessageDialog(this,
-                    "Orde saat ini sudah " + currentOrder,
-                    "Info", JOptionPane.INFORMATION_MESSAGE);
+                    LanguageManager.get("msg.same_order", currentOrder),
+                    LanguageManager.get("msg.info_title"),
+                    JOptionPane.INFORMATION_MESSAGE);
             return;
         }
         int confirm = JOptionPane.showConfirmDialog(this,
@@ -389,7 +398,7 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
             rightPanel.txtResult.setText("-");
             rightPanel.txtResult.setForeground(Color.BLACK);
             rightPanel.logArea.setText("");
-            logMessage("Pohon di-reset dengan Orde " + currentOrder);
+            logMessage(LanguageManager.get("log.tree_reset", currentOrder));
             updateControlStates();
         } else {
             leftPanel.spinnerOrde.setValue(currentOrder);
@@ -449,17 +458,21 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
     public void onFinished() {
         isAnimating = false;
         updateControlStates();
-        logMessage("--- Selesai ---");
+        logMessage(LanguageManager.get("log.finished"));
         centerPanel.lblPauseStatus.setVisible(false);
         centerPanel.treePanel.setSearchPathActive(false);
         centerPanel.treePanel.clearPath();
 
         if (isSearching) {
             if (controller.isLastSearchFound()) {
-                rightPanel.txtResult.setText(fmt(controller.getLastSearchKey()) + " Ditemukan");
+                rightPanel.txtResult.setText(
+                        LanguageManager.get("result.found",
+                                fmt(controller.getLastSearchKey())));
                 rightPanel.txtResult.setForeground(new Color(0, 128, 0));
             } else {
-                rightPanel.txtResult.setText(fmt(controller.getLastSearchKey()) + " Tidak Ditemukan");
+                rightPanel.txtResult.setText(
+                        LanguageManager.get("result.not_found",
+                                fmt(controller.getLastSearchKey())));
                 rightPanel.txtResult.setForeground(Color.RED);
             }
             isSearching = false;
@@ -567,8 +580,10 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
      */
     private void importData() {
         if (isAnimating) {
-            JOptionPane.showMessageDialog(this, "Animasi berjalan.",
-                    "Peringatan", JOptionPane.WARNING_MESSAGE);
+            JOptionPane.showMessageDialog(this,
+                    LanguageManager.get("msg.animating"),
+                    LanguageManager.get("msg.warning_title"),
+                    JOptionPane.WARNING_MESSAGE);
             return;
         }
         JFileChooser fileChooser = new JFileChooser();
@@ -633,11 +648,15 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
 
                 leftPanel.txtBatch.setText(sb.toString());
                 leftPanel.rbInsert.setSelected(true);
-                JOptionPane.showMessageDialog(this, "Data berhasil diimpor.",
-                        "Sukses", JOptionPane.INFORMATION_MESSAGE);
+                JOptionPane.showMessageDialog(this,
+                        LanguageManager.get("msg.import_success"),
+                        LanguageManager.get("msg.success_title"),
+                        JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Gagal: " + ex.getMessage(),
-                        "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this,
+                        LanguageManager.get("msg.import_failed", ex.getMessage()),
+                        LanguageManager.get("err.title"),
+                        JOptionPane.ERROR_MESSAGE);
             }
         }
     }
@@ -678,10 +697,13 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
                 ImageIO.write(image, "png", new File(filePath));
                 JOptionPane.showMessageDialog(this,
                         LanguageManager.get("dlg.export_success") + "\n" + filePath,
-                        "Sukses", JOptionPane.INFORMATION_MESSAGE);
+                        LanguageManager.get("msg.success_title"),
+                        JOptionPane.INFORMATION_MESSAGE);
             } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(),
-                        "Error", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this,
+                        LanguageManager.get("msg.export_failed", ex.getMessage()),
+                        LanguageManager.get("err.title"),
+                        JOptionPane.ERROR_MESSAGE);
             }
         }
     }

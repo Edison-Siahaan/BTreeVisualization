@@ -21,6 +21,10 @@ import java.util.List;
  * melalui {@link #validateBatch(String)} untuk mencegah input yang terlalu
  * besar dalam satu operasi.</p>
  *
+ * <p>Seluruh pesan kesalahan diambil dari {@link LanguageManager} agar
+ * mengikuti bahasa aktif. Kunci pesan yang dipakai berawalan {@code val.}
+ * (lihat {@code messages_id.properties} dan {@code messages_en.properties}).</p>
+ *
  * @author Edison Siahaan_L
  */
 public class InputValidator {
@@ -72,14 +76,15 @@ public class InputValidator {
      * <p>Pada mode numerik, kunci yang valid dikembalikan dalam format tiga
      * digit (misalnya {@code "007"}). Pada mode string, kunci dikembalikan apa
      * adanya. Jika tidak valid, {@link ValidationResult#valid} bernilai
-     * {@code false} dan {@link ValidationResult#message} berisi alasan.</p>
+     * {@code false} dan {@link ValidationResult#message} berisi alasan
+     * (sudah terlokalisasi).</p>
      *
      * @param text input mentah dari pengguna.
      * @return hasil validasi berisi kunci yang sudah dinormalisasi jika valid.
      */
     public ValidationResult validateKey(String text) {
         if (text == null || text.trim().isEmpty()) {
-            return new ValidationResult(false, "Input tidak boleh kosong", null);
+            return new ValidationResult(false, LanguageManager.get("val.empty"), null);
         }
 
         String cleanText = text.trim();
@@ -87,19 +92,22 @@ public class InputValidator {
         if (isNumeric) {
             try {
                 int val = Integer.parseInt(cleanText);
-                if (val < minKey || val > maxKey)
+                if (val < minKey || val > maxKey) {
                     return new ValidationResult(false,
-                            "Nilai harus antara " + minKey + " dan " + maxKey, null);
+                            LanguageManager.get("val.out_of_range", minKey, maxKey),
+                            null);
+                }
                 return new ValidationResult(true, "OK",
                         Arrays.asList(String.format("%03d", val)));
             } catch (NumberFormatException e) {
-                return new ValidationResult(false, "Input harus berupa angka", null);
+                return new ValidationResult(false,
+                        LanguageManager.get("val.not_a_number"), null);
             }
         } else {
             // Mode string: hanya huruf alfabet, maksimal 5 karakter.
             if (!cleanText.matches("^[a-zA-Z]{1,5}$")) {
                 return new ValidationResult(false,
-                        "Hanya huruf alfabet (maks. 5 karakter) yang diizinkan", null);
+                        LanguageManager.get("val.string_format"), null);
             }
             return new ValidationResult(true, "OK", Arrays.asList(cleanText));
         }
@@ -111,20 +119,20 @@ public class InputValidator {
      * <p>Item kosong di antara koma dilewati, sehingga input seperti
      * {@code "1,,2,,"} tetap valid dan menghasilkan kunci {@code ["001", "002"]}.
      * Jika seluruh item kosong atau melebihi {@link #maxBatch}, hasil validasi
-     * ditandai gagal.</p>
+     * ditandai gagal dengan pesan yang sudah terlokalisasi.</p>
      *
      * @param text input mentah berupa daftar kunci dipisah koma.
      * @return hasil validasi berisi daftar kunci yang sudah dinormalisasi.
      */
     public ValidationResult validateBatch(String text) {
         if (text == null || text.trim().isEmpty()) {
-            return new ValidationResult(false, "Input batch tidak boleh kosong", null);
+            return new ValidationResult(false, LanguageManager.get("val.batch_empty"), null);
         }
 
         String[] parts = text.split(",");
         if (parts.length > maxBatch) {
             return new ValidationResult(false,
-                    "Maksimal " + maxBatch + " data dalam satu batch", null);
+                    LanguageManager.get("val.batch_too_many", maxBatch), null);
         }
 
         List<String> keys = new ArrayList<>();
@@ -137,23 +145,27 @@ public class InputValidator {
                     int val = Integer.parseInt(clean);
                     if (val < minKey || val > maxKey) {
                         return new ValidationResult(false,
-                                "Nilai " + val + " harus antara " + minKey + " dan " + maxKey, null);
+                                LanguageManager.get("val.batch_value_out_of_range",
+                                        val, minKey, maxKey),
+                                null);
                     }
                     keys.add(String.format("%03d", val));
                 } catch (NumberFormatException e) {
                     return new ValidationResult(false,
-                            "Input '" + clean + "' bukan angka yang valid", null);
+                            LanguageManager.get("val.batch_not_number", clean), null);
                 }
             } else {
                 if (!clean.matches("^[a-zA-Z]{1,5}$")) {
                     return new ValidationResult(false,
-                            "Input '" + clean + "' bukan alfabet yang valid (maks. 5 huruf)", null);
+                            LanguageManager.get("val.batch_not_string", clean), null);
                 }
                 keys.add(clean);
             }
         }
 
-        if (keys.isEmpty()) return new ValidationResult(false, "Tidak ada data valid", null);
+        if (keys.isEmpty()) {
+            return new ValidationResult(false, LanguageManager.get("val.batch_no_valid"), null);
+        }
         return new ValidationResult(true, "OK", keys);
     }
 }

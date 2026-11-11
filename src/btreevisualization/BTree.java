@@ -27,6 +27,11 @@ import java.util.UUID;
  * pohon saat itu, sehingga listener (misalnya {@link StepRecorder}) dapat
  * merekam langkah animasi tanpa perlu mengakses struktur internal.</p>
  *
+ * <p>Pesan event diambil dari {@link LanguageManager} agar mengikuti bahasa
+ * yang aktif saat operasi dijalankan. Kunci pesan yang dipakai berawalan
+ * {@code log.btree.} (lihat {@code messages_id.properties} dan
+ * {@code messages_en.properties}).</p>
+ *
  * @author Edison Siahaan_L
  */
 public class BTree {
@@ -108,7 +113,7 @@ public class BTree {
      *
      * @param type      tipe event.
      * @param ids       ID node yang terpengaruh.
-     * @param msg       pesan deskriptif untuk log.
+     * @param msg       pesan deskriptif untuk log (sudah terlokalisasi).
      * @param activeKey kunci yang sedang aktif (boleh {@code null}).
      */
     private void fireEvent(BTreeEventType type, HashSet<UUID> ids, String msg, String activeKey) {
@@ -136,7 +141,7 @@ public class BTree {
                 root.keys.add(key);
                 fireEvent(BTreeEventType.KEY_INSERTED,
                         new HashSet<>(Arrays.asList(root.id)),
-                        "Membuat root baru, sisip " + fmt(key));
+                        LanguageManager.get("log.btree.new_root", fmt(key)));
                 return;
             }
 
@@ -153,7 +158,7 @@ public class BTree {
                         new HashSet<>(Arrays.asList(newRoot.id,
                                 root.children.get(0).id,
                                 root.children.get(1).id)),
-                        "Root dipecah, median " + fmt(split.median) + " menjadi root baru");
+                        LanguageManager.get("log.btree.root_split", fmt(split.median)));
             }
         } finally {
             this.currentActiveKey = null;
@@ -167,7 +172,8 @@ public class BTree {
      */
     private SplitResult insertRec(BTreeNode node, String key) {
         fireEvent(BTreeEventType.VISIT_NODE,
-                new HashSet<>(Arrays.asList(node.id)), "Mengunjungi node");
+                new HashSet<>(Arrays.asList(node.id)),
+                LanguageManager.get("log.btree.visit_node"));
 
         // Kasus leaf: sisipkan langsung di posisi terurut.
         if (node.isLeaf) {
@@ -176,7 +182,7 @@ public class BTree {
             node.keys.add(pos, key);
             fireEvent(BTreeEventType.KEY_INSERTED,
                     new HashSet<>(Arrays.asList(node.id)),
-                    "Sisipkan " + fmt(key) + " ke leaf");
+                    LanguageManager.get("log.btree.insert_leaf", fmt(key)));
             if (node.keys.size() > maxKeys) return splitNode(node);
             return null;
         }
@@ -192,7 +198,7 @@ public class BTree {
             node.children.add(i + 1, childSplit.rightSibling);
             fireEvent(BTreeEventType.NODE_SPLIT,
                     new HashSet<>(Arrays.asList(node.id, childSplit.rightSibling.id)),
-                    "Split anak, median " + fmt(childSplit.median) + " naik ke parent");
+                    LanguageManager.get("log.btree.child_split", fmt(childSplit.median)));
             if (node.keys.size() > maxKeys) return splitNode(node);
         }
         return null;
@@ -264,25 +270,28 @@ public class BTree {
     private boolean searchRec(BTreeNode node, String key) {
         if (node == null) return false;
         fireEvent(BTreeEventType.VISIT_NODE,
-                new HashSet<>(Arrays.asList(node.id)), "Mengunjungi node");
+                new HashSet<>(Arrays.asList(node.id)),
+                LanguageManager.get("log.btree.visit_node"));
 
         for (int i = 0; i < node.keys.size(); i++) {
             String currentKey = node.keys.get(i);
             fireEvent(BTreeEventType.VISIT_NODE,
                     new HashSet<>(Arrays.asList(node.id)),
-                    "Membandingkan " + fmt(key) + " dengan " + fmt(currentKey),
+                    LanguageManager.get("log.btree.compare", fmt(key), fmt(currentKey)),
                     currentKey);
 
             if (key.equals(currentKey)) {
                 fireEvent(BTreeEventType.VISIT_NODE,
                         new HashSet<>(Arrays.asList(node.id)),
-                        "Kunci " + fmt(key) + " DITEMUKAN", currentKey);
+                        LanguageManager.get("log.btree.key_found", fmt(key)),
+                        currentKey);
                 return true;
             } else if (key.compareTo(currentKey) < 0) {
                 if (node.isLeaf) {
                     fireEvent(BTreeEventType.VISIT_NODE,
                             new HashSet<>(Arrays.asList(node.id)),
-                            "Kunci " + fmt(key) + " TIDAK DITEMUKAN (Leaf)", null);
+                            LanguageManager.get("log.btree.key_not_found_leaf", fmt(key)),
+                            null);
                     return false;
                 }
                 return searchRec(node.children.get(i), key);
@@ -293,7 +302,8 @@ public class BTree {
         if (node.isLeaf) {
             fireEvent(BTreeEventType.VISIT_NODE,
                     new HashSet<>(Arrays.asList(node.id)),
-                    "Kunci " + fmt(key) + " TIDAK DITEMUKAN (Leaf)", null);
+                    LanguageManager.get("log.btree.key_not_found_leaf", fmt(key)),
+                    null);
             return false;
         }
         return searchRec(node.children.get(node.keys.size()), key);
@@ -325,7 +335,8 @@ public class BTree {
 
     private void deleteRec(BTreeNode node, String key) {
         fireEvent(BTreeEventType.VISIT_NODE,
-                new HashSet<>(Arrays.asList(node.id)), "Mencari kunci " + fmt(key));
+                new HashSet<>(Arrays.asList(node.id)),
+                LanguageManager.get("log.btree.search_key", fmt(key)));
         int idx = 0;
         while (idx < node.keys.size() && node.keys.get(idx).compareTo(key) < 0) idx++;
 
@@ -336,7 +347,7 @@ public class BTree {
                 node.keys.remove(idx);
                 fireEvent(BTreeEventType.DELETE_KEY,
                         new HashSet<>(Arrays.asList(node.id)),
-                        "Menghapus kunci " + fmt(key) + " dari leaf");
+                        LanguageManager.get("log.btree.delete_from_leaf", fmt(key)));
             } else {
                 // Kasus internal: tukar dengan penerus (successor) di subtree kanan,
                 // lalu hapus penerus tersebut dari leaf.
@@ -348,7 +359,8 @@ public class BTree {
 
                 fireEvent(BTreeEventType.DELETE_KEY,
                         new HashSet<>(Arrays.asList(node.id, succNode.id)),
-                        "Menukar kunci " + fmt(key) + " dengan penerusnya (" + fmt(succValue) + ")");
+                        LanguageManager.get("log.btree.swap_successor",
+                                fmt(key), fmt(succValue)));
 
                 BTreeNode childToVisit = node.children.get(idx + 1);
                 deleteRec(childToVisit, key);
@@ -359,7 +371,7 @@ public class BTree {
             if (node.isLeaf) {
                 fireEvent(BTreeEventType.VISIT_NODE,
                         new HashSet<>(Arrays.asList(node.id)),
-                        "Kunci " + fmt(key) + " tidak ditemukan");
+                        LanguageManager.get("log.btree.key_not_found", fmt(key)));
                 return;
             }
             BTreeNode childToVisit = node.children.get(idx);
@@ -406,7 +418,7 @@ public class BTree {
                 if (!leftSib.isLeaf) child.children.add(0, leftSib.children.remove(leftSib.children.size() - 1));
                 fireEvent(BTreeEventType.BORROW,
                         new HashSet<>(Arrays.asList(child.id, leftSib.id)),
-                        "Meminjam kunci dari saudara kiri");
+                        LanguageManager.get("log.btree.borrow_left"));
                 return;
             }
         }
@@ -420,7 +432,7 @@ public class BTree {
                 if (!rightSib.isLeaf) child.children.add(rightSib.children.remove(0));
                 fireEvent(BTreeEventType.BORROW,
                         new HashSet<>(Arrays.asList(child.id, rightSib.id)),
-                        "Meminjam kunci dari saudara kanan");
+                        LanguageManager.get("log.btree.borrow_right"));
                 return;
             }
         }
@@ -435,7 +447,7 @@ public class BTree {
             parent.children.remove(childIdx);
             fireEvent(BTreeEventType.MERGE,
                     new HashSet<>(Arrays.asList(leftSib.id, child.id)),
-                    "Menggabungkan node dengan saudara kiri");
+                    LanguageManager.get("log.btree.merge_left"));
         } else {
             // Merge dengan saudara kanan.
             BTreeNode rightSib = parent.children.get(childIdx + 1);
@@ -445,7 +457,7 @@ public class BTree {
             parent.children.remove(childIdx + 1);
             fireEvent(BTreeEventType.MERGE,
                     new HashSet<>(Arrays.asList(child.id, rightSib.id)),
-                    "Menggabungkan node dengan saudara kanan");
+                    LanguageManager.get("log.btree.merge_right"));
         }
     }
 
