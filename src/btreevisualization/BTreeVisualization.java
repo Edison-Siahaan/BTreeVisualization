@@ -15,7 +15,7 @@ import javax.imageio.ImageIO;
  *
  * <p>Kelas ini bertanggung jawab atas:</p>
  * <ul>
- *   <li>Menyusun tata letak UI: menu bar, panel kiri (input & kontrol),
+ *   <li>Menyusun tata letak UI: menu bar, panel kiri (input &amp; kontrol),
  *       panel tengah (kanvas pohon), dan panel kanan (log, info, pencarian,
  *       undo/redo).</li>
  *   <li>Menerjemahkan aksi pengguna (tombol, menu) menjadi pemanggilan ke
@@ -57,7 +57,7 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
 
     private JMenu fileMenu, settingsMenu, languageMenu, keyTypeMenu, helpMenu;
     private JMenuItem menuItemNew, menuItemImport, menuItemExport, menuItemExit,
-                      menuItemGuide, menuItemAbout;
+                      menuItemGuide, menuItemAbout, menuItemTemplate;
     private JRadioButtonMenuItem langIdItem, langEnItem, typeNumericItem, typeStringItem;
 
     /**
@@ -197,6 +197,12 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
         menuItemGuide = new JMenuItem();
         menuItemGuide.addActionListener(e -> CustomDialogs.showGuide(this));
         helpMenu.add(menuItemGuide);
+
+        // Sub-menu baru: Template File Import Data.
+        menuItemTemplate = new JMenuItem();
+        menuItemTemplate.addActionListener(e -> CustomDialogs.showImportTemplate(this));
+        helpMenu.add(menuItemTemplate);
+
         helpMenu.addSeparator();
         menuItemAbout = new JMenuItem();
         menuItemAbout.addActionListener(e -> CustomDialogs.showAbout(this));
@@ -224,6 +230,7 @@ public class BTreeVisualization extends JFrame implements AnimationListener {
         menuItemExport.setText(LanguageManager.get("menu.file.export"));
         menuItemExit.setText(LanguageManager.get("menu.file.exit"));
         menuItemGuide.setText(LanguageManager.get("menu.help.guide"));
+        menuItemTemplate.setText(LanguageManager.get("menu.help.template"));
         menuItemAbout.setText(LanguageManager.get("menu.help.about"));
         langIdItem.setText(LanguageManager.get("menu.settings.lang_id"));
         langEnItem.setText(LanguageManager.get("menu.settings.lang_en"));

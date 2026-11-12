@@ -4,15 +4,21 @@ import javax.swing.*;
 import javax.swing.border.Border;
 import java.awt.*;
 import java.awt.event.KeyEvent;
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 /**
  * Kumpulan dialog kustom untuk aplikasi visualisasi B-Tree.
  *
- * <p>Kelas ini menyediakan dua dialog modal yang dipanggil dari
+ * <p>Kelas ini menyediakan tiga dialog modal yang dipanggil dari
  * {@link BTreeVisualization}:</p>
  * <ul>
  *   <li>{@link #showGuide(Window)} — panduan penggunaan aplikasi berisi
  *       langkah-langkah singkat dan legenda warna.</li>
+ *   <li>{@link #showImportTemplate(Window)} — panduan format file teks
+ *       (.txt) untuk mengimpor data batch, lengkap dengan contoh format dan
+ *       tombol untuk menyimpan template ke file.</li>
  *   <li>{@link #showAbout(Window)} — informasi tentang aplikasi, pengembang,
  *       institusi, dan teknologi yang digunakan.</li>
  * </ul>
@@ -21,6 +27,11 @@ import java.awt.event.KeyEvent;
  * tampilan konsisten di berbagai platform. Seluruh kelas utilitas di dalamnya
  * ({@link NumberBadge}, {@link Chip}, {@link AppIcon}) bersifat private-package
  * dan hanya dipakai oleh dialog-dialog di kelas ini.</p>
+ *
+ * <p>Seluruh teks yang tampil diambil dari {@link LanguageManager} agar
+ * mengikuti bahasa aktif. Perubahan bahasa dari menu
+ * {@code Settings → Language} akan langsung memengaruhi dialog berikutnya
+ * yang dibuka (dialog yang sedang terbuka tidak ter-refresh otomatis).</p>
  *
  * @author Edison Siahaan_L
  */
@@ -318,6 +329,142 @@ public class CustomDialogs {
         dlg.getContentPane().setBackground(Color.WHITE);
         dlg.add(content, BorderLayout.CENTER);
         dlg.add(buttonBar(dlg, LanguageManager.get("guide.btn")), BorderLayout.SOUTH);
+        showDialog(dlg, owner);
+    }
+
+    // =====================================================================
+    //  Dialog: Template File Import Data
+    // =====================================================================
+
+    /**
+     * Menampilkan dialog panduan format file teks (.txt) untuk mengimpor
+     * data batch. Gaya visual dan struktur dialog disamakan dengan
+     * {@link #showGuide(Window)}.
+     *
+     * <p>Dialog menampilkan tiga langkah penggunaan (konfigurasi opsional,
+     * daftar kunci, cara mengimpor) dan contoh format file dalam
+     * {@link JTextArea} read-only. Tombol <b>Simpan Template ke File</b>
+     * memungkinkan pengguna mengekspor contoh format tersebut menjadi file
+     * {@code .txt} melalui {@link JFileChooser}.</p>
+     *
+     * <p>Format template yang didukung:</p>
+     * <pre>
+     * ORDER=3
+     * TYPE=NUMERIC
+     * 10, 20, 30
+     * 40
+     * 50
+     * </pre>
+     *
+     * @param owner window induk untuk pemusatan posisi dialog.
+     */
+    public static void showImportTemplate(Window owner) {
+        JDialog dlg = new JDialog(owner,
+                LanguageManager.get("template.title"),
+                Dialog.ModalityType.APPLICATION_MODAL);
+
+        JPanel content = new JPanel();
+        content.setLayout(new BoxLayout(content, BoxLayout.Y_AXIS));
+        content.setBackground(Color.WHITE);
+        content.setBorder(BorderFactory.createEmptyBorder(18, 22, 8, 22));
+
+        // Judul dan subjudul.
+        JLabel title = new JLabel(LanguageManager.get("template.title"));
+        title.setFont(font(Font.BOLD, 18));
+        title.setForeground(ACCENT);
+        title.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel sub = new JLabel(LanguageManager.get("template.subtitle"));
+        sub.setFont(font(Font.PLAIN, 12));
+        sub.setForeground(MUTED);
+        sub.setAlignmentX(Component.LEFT_ALIGNMENT);
+        sub.setBorder(BorderFactory.createEmptyBorder(2, 0, 14, 0));
+
+        content.add(title);
+        content.add(sub);
+
+        // Tiga langkah panduan.
+        addStep(content, 1, LanguageManager.get("template.1.title"),
+                LanguageManager.get("template.1.desc"));
+        addStep(content, 2, LanguageManager.get("template.2.title"),
+                LanguageManager.get("template.2.desc"));
+        addStep(content, 3, LanguageManager.get("template.3.title"),
+                LanguageManager.get("template.3.desc"));
+
+        // Bagian preview / contoh format.
+        content.add(separator());
+        JLabel previewTitle = new JLabel(
+                LanguageManager.get("template.preview.title"));
+        previewTitle.setFont(font(Font.BOLD, 14));
+        previewTitle.setForeground(ACCENT);
+        previewTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        previewTitle.setBorder(BorderFactory.createEmptyBorder(12, 0, 8, 0));
+        content.add(previewTitle);
+
+        final String templateStr = "ORDER=3\nTYPE=NUMERIC\n10, 20, 30\n40\n50\n";
+
+        JTextArea txtTemplate = new JTextArea(templateStr);
+        txtTemplate.setFont(new Font("Monospaced", Font.PLAIN, 13));
+        txtTemplate.setEditable(false);
+        txtTemplate.setBackground(new Color(250, 250, 250));
+        txtTemplate.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(LINE),
+                BorderFactory.createEmptyBorder(5, 5, 5, 5)
+        ));
+
+        JScrollPane scroll = new JScrollPane(txtTemplate);
+        scroll.setAlignmentX(Component.LEFT_ALIGNMENT);
+        scroll.setMaximumSize(new Dimension(Integer.MAX_VALUE, 100));
+        scroll.setPreferredSize(new Dimension(400, 100));
+        content.add(scroll);
+        content.add(Box.createVerticalStrut(10));
+
+        // Panel tombol kustom (Simpan & Tutup).
+        JPanel bar = new JPanel(new FlowLayout(FlowLayout.CENTER, 10, 10));
+        bar.setBackground(Color.WHITE);
+        bar.setBorder(BorderFactory.createEmptyBorder(4, 0, 6, 0));
+
+        JButton btnSave = new JButton(
+                LanguageManager.get("template.btn_save"));
+        btnSave.setPreferredSize(new Dimension(180, 30));
+        btnSave.addActionListener(e -> {
+            JFileChooser chooser = new JFileChooser();
+            chooser.setDialogTitle(LanguageManager.get("template.btn_save"));
+            chooser.setSelectedFile(new File("template_import.txt"));
+
+            if (chooser.showSaveDialog(dlg) == JFileChooser.APPROVE_OPTION) {
+                try {
+                    File file = chooser.getSelectedFile();
+                    if (!file.getName().toLowerCase().endsWith(".txt")) {
+                        file = new File(file.getAbsolutePath() + ".txt");
+                    }
+                    Files.write(file.toPath(),
+                            templateStr.getBytes(StandardCharsets.UTF_8));
+                    JOptionPane.showMessageDialog(dlg,
+                            LanguageManager.get("template.save_success"),
+                            LanguageManager.get("msg.success_title"),
+                            JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(dlg,
+                            LanguageManager.get("template.save_fail"),
+                            LanguageManager.get("err.title"),
+                            JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        JButton btnClose = new JButton(
+                LanguageManager.get("template.btn_close"));
+        btnClose.setPreferredSize(new Dimension(100, 30));
+        btnClose.addActionListener(e -> dlg.dispose());
+        dlg.getRootPane().setDefaultButton(btnClose);
+
+        bar.add(btnSave);
+        bar.add(btnClose);
+
+        dlg.getContentPane().setBackground(Color.WHITE);
+        dlg.add(content, BorderLayout.CENTER);
+        dlg.add(bar, BorderLayout.SOUTH);
         showDialog(dlg, owner);
     }
 

@@ -1,12 +1,17 @@
 package btreevisualization;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.text.MessageFormat;
 import java.util.Locale;
 import java.util.MissingResourceException;
+import java.util.Properties;
 import java.util.ResourceBundle;
 
 /**
- * Pengelola pesan teks multi-bahasa (i18n) untuk aplikasi.
+ * Pengelola pesan teks multi-bahasa (i18n) untuk aplikasi visualisasi B-Tree.
  *
  * <p>Pesan disimpan dalam file {@code messages_id.properties} dan
  * {@code messages_en.properties}. Kelas ini menyediakan akses statis ke
@@ -26,6 +31,15 @@ import java.util.ResourceBundle;
  *       {@link MessageFormat}.</li>
  * </ul>
  *
+ * <p><b>Fallback file system:</b> pada proyek NetBeans 8.2 (Ant), file
+ * {@code .properties} kadang tidak ikut tercopy ke {@code build/classes}.
+ * Jika {@link ResourceBundle#getBundle(String, Locale)} gagal memuat bundle,
+ * kelas ini mencoba membaca file {@code messages_<locale>.properties} langsung
+ * dari folder {@code src/} atau current working directory. Dengan fallback ini,
+ * penambahan key baru seperti {@code menu.help.template} dan
+ * {@code template.*} tetap terbaca tanpa harus membersihkan dan membangun ulang
+ * project.</p>
+ *
  * <p>Jika kunci tidak ditemukan, dikembalikan penanda {@code !kunci!} agar
  * kesalahan terlihat jelas saat pengujian, bukan silently kosong. Jika
  * formatting argumen gagal (misalnya placeholder tidak cocok), pesan template
@@ -37,6 +51,12 @@ public class LanguageManager {
 
     /** Bundle pesan aktif sesuai bahasa yang dipilih. */
     private static ResourceBundle bundle;
+
+    /**
+     * Fallback properti yang dibaca langsung dari file system ketika
+     * {@link ResourceBundle} gagal memuat file bahasa.
+     */
+    private static Properties fallbackProps;
 
     /** Kode locale aktif, disimpan agar bisa dipakai untuk reload/debug. */
     private static String currentLocale = "id";
@@ -50,25 +70,87 @@ public class LanguageManager {
      * Mengganti bahasa aktif dengan memuat ulang {@link ResourceBundle} dari
      * file {@code messages_<locale>.properties}.
      *
-     * <p>Jika file untuk locale tersebut tidak ditemukan, bundle lama tetap
-     * dipertahankan dan pesan error dicetak ke {@code System.out}. Perilaku
-     * ini menjaga aplikasi tetap berjalan meskipun file terjemahan hilang.</p>
+     * <p>Jika file untuk locale tersebut tidak ditemukan melalui
+     * {@link ResourceBundle}, kelas ini mencoba fallback membaca file langsung
+     * dari folder {@code src/} atau current working directory. Jika keduanya
+     * gagal, bundle lama tetap dipertahankan dan pesan error dicetak ke
+     * {@code System.out}. Perilaku ini menjaga aplikasi tetap berjalan meskipun
+     * file terjemahan hilang.</p>
      *
-     * @param localeCode kode locale dua huruf, misalnya {@code "id"} atau {@code "en"}.
+     * @param localeCode kode locale dua huruf, misalnya {@code "id"} atau
+     *                   {@code "en"}.
      */
     public static void setLanguage(String localeCode) {
         if (localeCode == null || localeCode.isEmpty()) return;
+
         Locale locale = new Locale(localeCode);
+
         try {
             bundle = ResourceBundle.getBundle("messages", locale);
+            fallbackProps = null;
             currentLocale = localeCode;
         } catch (MissingResourceException e) {
-            System.out.println("Gagal memuat file bahasa untuk: " + localeCode);
+            // Jangan langsung membuang bundle lama; coba fallback dulu.
+            Properties oldFallback = fallbackProps;
+            ResourceBundle oldBundle = bundle;
+
+            fallbackProps = null;
+
+            if (tryFileSystem(localeCode)) {
+                currentLocale = localeCode;
+                System.out.println("Memuat bahasa dari file system: messages_"
+                        + localeCode + ".properties");
+            } else {
+                // Kembalikan state lama agar aplikasi tetap bisa memakai
+                // terjemahan sebelumnya.
+                bundle = oldBundle;
+                fallbackProps = oldFallback;
+                System.out.println("Gagal memuat file bahasa untuk: " + localeCode);
+            }
         }
     }
 
     /**
-     * @return kode locale yang sedang aktif, misalnya {@code "id"} atau {@code "en"}.
+     * Mencoba membaca file {@code messages_<locale>.properties} langsung dari
+     * file system. Lokasi yang dicoba:
+     * <ol>
+     *   <li>{@code src/messages_<locale>.properties}</li>
+     *   <li>{@code messages_<locale>.properties} (current working directory)</li>
+     * </ol>
+     *
+     * <p>File dibaca sebagai UTF-8 agar karakter non-ASCII tetap benar. Jika
+     * berhasil, hasilnya disimpan di {@link #fallbackProps}.</p>
+     *
+     * @param localeCode kode locale, misalnya {@code "id"} atau {@code "en"}.
+     * @return {@code true} jika salah satu file berhasil dibaca.
+     */
+    private static boolean tryFileSystem(String localeCode) {
+        String fileName = "messages_" + localeCode + ".properties";
+        File[] candidates = new File[]{
+                new File("src", fileName),
+                new File(fileName)
+        };
+
+        for (File file : candidates) {
+            if (!file.exists() || !file.isFile()) continue;
+
+            try (InputStreamReader reader = new InputStreamReader(
+                    new FileInputStream(file), StandardCharsets.UTF_8)) {
+                Properties props = new Properties();
+                props.load(reader);
+                fallbackProps = props;
+                bundle = null;
+                return true;
+            } catch (Exception e) {
+                // Coba kandidat berikutnya.
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @return kode locale yang sedang aktif, misalnya {@code "id"} atau
+     *         {@code "en"}.
      */
     public static String getCurrentLocale() {
         return currentLocale;
@@ -78,15 +160,34 @@ public class LanguageManager {
      * Mengambil pesan statis (tanpa argumen) untuk kunci tertentu pada bahasa
      * aktif.
      *
+     * <p>Contoh key yang valid:</p>
+     * <ul>
+     *   <li>{@code "log.btree.visit_node"} — pesan traversal node.</li>
+     *   <li>{@code "menu.help.template"} — menu template import data.</li>
+     *   <li>{@code "template.title"} — judul dialog template import.</li>
+     *   <li>{@code "panel.center"} — judul panel tengah.</li>
+     * </ul>
+     *
      * @param key kunci pesan di file properties.
      * @return teks pesan, atau {@code !key!} jika tidak ditemukan.
      */
     public static String get(String key) {
-        try {
-            return bundle.getString(key);
-        } catch (Exception e) {
-            return "!" + key + "!";
+        // Prioritas 1: ResourceBundle.
+        if (bundle != null) {
+            try {
+                return bundle.getString(key);
+            } catch (Exception e) {
+                // Lanjut ke fallback jika ada.
+            }
         }
+
+        // Prioritas 2: fallback file system.
+        if (fallbackProps != null) {
+            String value = fallbackProps.getProperty(key);
+            if (value != null) return value;
+        }
+
+        return "!" + key + "!";
     }
 
     /**
@@ -117,15 +218,17 @@ public class LanguageManager {
         String template = get(key);
         if (args == null || args.length == 0) return template;
 
-        // Fallback: jika kunci tidak ditemukan, jangan coba format penanda !key!
+        // Fallback: jika kunci tidak ditemukan, jangan coba format penanda
+        // !key! karena MessageFormat akan menolak string tanpa placeholder.
         if (template.startsWith("!") && template.endsWith("!") && template.length() > 1) {
             return template;
         }
+
         try {
             return MessageFormat.format(template, args);
         } catch (IllegalArgumentException e) {
-            // Placeholder tidak cocok dengan argumen; kembalikan template mentah
-            // agar aplikasi tidak crash di tengah animasi.
+            // Placeholder tidak cocok dengan argumen; kembalikan template
+            // mentah agar aplikasi tidak crash di tengah animasi.
             return template;
         }
     }
